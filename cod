@@ -1,0 +1,119 @@
+import heapq
+import json
+from datetime import datetime
+
+# Estructura principal: Cola de prioridad (heap)
+tareas = []  # Cada tarea será una tupla: (prioridad, fecha, nombre, dependencias)
+tareas_completadas = set()  # Almacena nombres de tareas ya completadas
+
+# Función para cargar tareas desde un archivo JSON
+def cargar_tareas(archivo):
+    global tareas
+    try:
+        with open(archivo, "r") as f:
+            tareas = json.load(f)
+            # Convertir las fechas a objetos datetime y reconstruir el heap
+            tareas = [(t[0], datetime.strptime(t[1], "%Y-%m-%d"), t[2], t[3]) for t in tareas]
+            heapq.heapify(tareas)
+    except FileNotFoundError:
+        print("Archivo no encontrado, iniciando con una lista vacía.")
+    except Exception as e:
+        print(f"Error al cargar tareas: {e}")
+
+# Función para guardar tareas en un archivo JSON
+def guardar_tareas(archivo):
+    try:
+        with open(archivo, "w") as f:
+            # Convertir las fechas de datetime a string antes de guardar
+            json.dump([(t[0], t[1].strftime("%Y-%m-%d"), t[2], t[3]) for t in tareas], f)
+    except Exception as e:
+        print(f"Error al guardar tareas: {e}")
+
+# Función para añadir una nueva tarea
+def añadir_tarea(nombre, prioridad, fecha_vencimiento, dependencias=[]):
+    try:
+        prioridad = int(prioridad)
+        fecha_vencimiento = datetime.strptime(fecha_vencimiento, "%Y-%m-%d")
+        tarea = (prioridad, fecha_vencimiento, nombre, dependencias)
+        heapq.heappush(tareas, tarea)
+        print(f"Tarea '{nombre}' añadida con éxito.")
+    except ValueError:
+        print("Error: Asegúrate de que la prioridad sea un número entero y la fecha esté en formato AAAA-MM-DD.")
+    except Exception as e:
+        print(f"Error al añadir tarea: {e}")
+
+# Función para mostrar las tareas pendientes
+def mostrar_tareas():
+    if not tareas:
+        print("No hay tareas pendientes.")
+        return
+    print("\nTareas pendientes (ordenadas por prioridad):")
+    for prioridad, fecha, nombre, deps in sorted(tareas):
+        estado = "Ejecutable" if verificar_ejecutabilidad(nombre) else "No ejecutable"
+        print(f"Prioridad: {prioridad}, Fecha: {fecha.strftime('%Y-%m-%d')}, Nombre: {nombre}, Dependencias: {', '.join(deps)}, Estado: {estado}")
+
+# Función para completar una tarea
+def completar_tarea():
+    if not tareas:
+        print("No hay tareas para completar.")
+        return
+    tarea = heapq.heappop(tareas)
+    tareas_completadas.add(tarea[2])
+    print(f"Tarea completada: {tarea[2]} (Prioridad: {tarea[0]}, Fecha: {tarea[1].strftime('%Y-%m-%d')})")
+
+# Función para obtener la tarea de mayor prioridad sin eliminarla
+def obtener_tarea_prioritaria():
+    if not tareas:
+        print("No hay tareas pendientes.")
+        return
+    tarea = tareas[0]
+    print(f"Tarea de mayor prioridad: {tarea[2]} (Prioridad: {tarea[0]}, Fecha: {tarea[1].strftime('%Y-%m-%d')})")
+
+# Función para verificar si una tarea es ejecutable
+def verificar_ejecutabilidad(nombre_tarea):
+    tarea = next((t for t in tareas if t[2] == nombre_tarea), None)
+    if not tarea:
+        print(f"Tarea '{nombre_tarea}' no encontrada.")
+        return False
+    _, _, _, dependencias = tarea
+    # Verificar si todas las dependencias están en tareas_completadas
+    for dep in dependencias:
+        if dep not in tareas_completadas:
+            return False
+    return True
+
+# Menú interactivo
+def menu():
+    cargar_tareas("tareas.json")
+    while True:
+        print("\nOpciones:")
+        print("1. Añadir tarea")
+        print("2. Mostrar tareas pendientes")
+        print("3. Completar tarea")
+        print("4. Obtener tarea de mayor prioridad")
+        print("5. Guardar y salir")
+        opcion = input("Selecciona una opción: ")
+
+        if opcion == "1":
+            nombre = input("Nombre de la tarea: ")
+            prioridad = input("Prioridad (número entero, menor es más alta): ")
+            fecha_vencimiento = input("Fecha de vencimiento (AAAA-MM-DD): ")
+            dependencias = input("Dependencias (separadas por coma, si las hay): ").split(",")
+            dependencias = [d.strip() for d in dependencias if d.strip()]  # Limpiar espacios
+            añadir_tarea(nombre, prioridad, fecha_vencimiento, dependencias)
+        elif opcion == "2":
+            mostrar_tareas()
+        elif opcion == "3":
+            completar_tarea()
+        elif opcion == "4":
+            obtener_tarea_prioritaria()
+        elif opcion == "5":
+            guardar_tareas("tareas.json")
+            print("Tareas guardadas. Saliendo...")
+            break
+        else:
+            print("Opción inválida, intenta de nuevo.")
+
+# Ejecutar el programa
+if __name__ == "__main__":
+    menu()
